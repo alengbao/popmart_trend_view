@@ -11,7 +11,8 @@ import SwiftUI
 struct popmart_trend_viewApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            // 这里可以传入趋势数据，或者保持为空让其他组件传入
+            ContentView(trendInput: nil)
         }
     }
 }
