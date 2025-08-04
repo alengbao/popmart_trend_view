@@ -1,7 +1,5 @@
 import Foundation
 
-let isMock = true
-
 // Fetcher协议
 protocol TrendFetcher {
     func fetch() async -> [TrendData] // 每次fetch只获取新增的数据
@@ -18,7 +16,7 @@ class TrendFetcherManager: ObservableObject {
     
     private func setupFetchers() {
         register(GoogleTrendsFetcher())
-        register(BaiduTrendsFetcher())
+        // register(BaiduTrendsFetcher())
     }
     
     func register(_ fetcher: TrendFetcher) {
@@ -41,7 +39,12 @@ class TrendFetcherManager: ObservableObject {
         }
         
         await MainActor.run {
-            self.trendResults = self.trendResults + allResults
+            // 检查是否有新数据
+            let newDataCount = allResults.count
+            if newDataCount > 0 {
+                self.trendResults = self.trendResults + allResults
+                print("获取到 \(newDataCount) 条新数据")
+            }
         }
     }
     
@@ -55,11 +58,8 @@ class TrendFetcherManager: ObservableObject {
     }
 }
 
-
-
 class TrendMocker {
     let source: String
-    // 模拟数据 要求输入一个数组和index 数组中包含日期和值，日期为Date类型，值为Double类型，index为Int类型，index为数组中的索引，第一次返回返回Index之前的所有数据，之后每次返回Index+1的值，如果Index大于数组长度，则返回随机值
     var index: Int = 0
     var data: [TrendData] = []
     var isFirst: Bool
