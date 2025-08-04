@@ -10,70 +10,95 @@
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    │
-│  │   消息组件   │    │   展示组件   │    │   策略组件   │    │
+│  │   消息中心   │    │   展示组件   │    │   策略中心   │    │
 │  │ Message     │    │ Display     │    │ Strategy    │    │
-│  │ Component   │    │ Component   │    │ Component   │    │
+│  │ Center      │    │ Component   │    │ Center      │    │
 │  └─────────────┘    └─────────────┘    └─────────────┘    │
 │         │                   │                   │           │
 │         │                   │                   │           │
 │         └───────────────────┼───────────────────┘           │
 │                             │                               │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    │
-│  │   核心组件   │◄───┤ 趋势获取组件 │    │   数据源     │    │
-│  │ Core        │    │ Trend       │    │ Data        │    │
-│  │ Component   │    │ Fetcher     │    │ Sources     │    │
+│  │   数据模型   │◄───┤ 趋势获取器   │    │   数据源     │    │
+│  │ Data        │    │ Trend       │    │ Data        │    │
+│  │ Models      │    │ Fetchers    │    │ Sources     │    │
 │  └─────────────┘    └─────────────┘    └─────────────┘    │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 📋 组件详解
+## 📁 项目结构
 
-### 1. 核心组件 (Core Component)
+```
+popmart_trend_view/
+├── popmart_trend_view/
+│   ├── Assets.xcassets/           # 应用资源
+│   ├── ContentView.swift          # 主界面视图
+│   ├── popmart_trend_viewApp.swift # 应用入口
+│   ├── Model/                     # 数据模型
+│   │   ├── MessageModels.swift    # 消息模型
+│   │   └── TrendData.swift        # 趋势数据模型
+│   └── TrendFetcher/              # 趋势获取器
+│       ├── TrendFetcherProtocol.swift # 趋势获取协议
+│       ├── GoogleTrendsFetcher.swift  # 谷歌趋势获取器
+│       ├── BaiduTrendsFetcher.swift   # 百度趋势获取器
+│       ├── MessageCenter/             # 消息中心
+│       │   └── MessageCenter.swift    # 消息管理器
+│       └── StrategyCenter/            # 策略中心
+│           ├── StrategyProtocol.swift # 策略协议
+│           └── Strategies.swift       # 策略实现
+├── popmart_trend_viewTests/        # 单元测试
+├── popmart_trend_viewUITests/      # UI测试
+└── README.md                       # 项目文档
+```
 
-**职责**: 数据存储和管理的中央枢纽
+## 📋 核心组件详解
 
-**核心结构**:
+### 1. 数据模型 (Data Models)
+
+#### TrendData
 ```swift
-struct CoreComponent {
-    // 趋势数据存储 - Map结构
-    // Key: 数据来源标识 (如 "sales", "social", "inventory")
-    // Value: 对应的趋势数据
-    private var trendDataMap: [String: TrendInput] = [:]
-    
-    // 数据更新通知
-    private var updateCallbacks: [() -> Void] = []
+struct TrendData: Identifiable {
+    let id = UUID()
+    let date: Date
+    let value: Double
+    let source: String
 }
 ```
 
-**主要功能**:
-- 📊 统一管理所有趋势数据
-- 🔄 提供数据更新接口
-- 📡 通知其他组件数据变化
-- 🗂️ 数据持久化存储
+#### MessageModels
+```swift
+enum MessageType: String, CaseIterable {
+    case strongSell = "强烈卖出"    // 红色
+    case normalSell = "普通卖出"    // 橙色
+    case normalBuy = "普通买入"     // 蓝色
+    case strongBuy = "强烈买入"     // 绿色
+    case neutral = "中性"          // 灰色
+}
 
-**数据流**:
-```
-趋势获取组件 → 核心组件 → 展示组件/策略组件
+struct InAppMessage: Identifiable {
+    let id = UUID()
+    let content: String
+    let timestamp: Date
+    let type: MessageType
+}
 ```
 
-### 2. 趋势获取组件 (Trend Fetcher Component)
+### 2. 趋势获取器 (Trend Fetchers)
 
 **职责**: 异步获取各类趋势数据
 
 **核心结构**:
 ```swift
-class TrendFetcher {
-    // 异步获取任务
-    private var fetchTasks: [String: Task<Void, Never>] = [:]
-    
-    // 定时器管理
-    private var timers: [String: Timer] = [:]
-    
-    // 数据源配置
-    private let dataSources: [DataSource]
+protocol TrendFetcher {
+    func fetch() async -> [TrendData]
+    func getSource() -> String
 }
 ```
+
+**已实现的获取器**:
+- **GoogleTrendsFetcher**: 获取谷歌趋势数据
+- **BaiduTrendsFetcher**: 获取百度趋势数据
 
 **主要功能**:
 - 🔄 定时自动获取趋势数据
@@ -81,83 +106,51 @@ class TrendFetcher {
 - 🌐 多数据源并行获取
 - ⚡ 异步处理，不阻塞UI
 
-**获取策略**:
-- **定时获取**: 每5分钟自动获取一次
-- **手动获取**: 用户点击刷新按钮
-- **智能获取**: 根据数据变化频率调整获取间隔
-
-### 3. 展示组件 (Display Component)
-
-**职责**: 将趋势数据可视化展示
-
-**核心结构**:
-```swift
-struct TrendDisplayView: View {
-    @ObservedObject var coreComponent: CoreComponent
-    @State private var selectedTrend: String?
-    @State private var selectedPoint: TrendData?
-}
-```
-
-**主要功能**:
-- 📈 多趋势曲线图展示
-- 🔍 支持长按查看数据点详情
-- 📱 响应式界面设计
-- 🎨 美观的图表样式
-
-**交互功能**:
-- **长按图表**: 查看具体数据点的时间和数值
-- **切换趋势**: 在不同数据源之间切换
-- **缩放查看**: 支持图表缩放和拖拽
-
-### 4. 策略组件 (Strategy Component)
+### 3. 策略中心 (Strategy Center)
 
 **职责**: 分析趋势数据并触发预警
 
 **核心结构**:
 ```swift
-protocol TrendStrategy {
-    func analyze(trendData: TrendInput) -> StrategyResult
-}
-
-class StrategyEngine {
-    private var strategies: [TrendStrategy] = []
-    
-    func runStrategies(trendData: [String: TrendInput]) -> [AlertMessage]
+protocol Strategy {
+    var name: String { get }
+    func getLevel() -> StrategyLevel
+    func execute(data: [String: [TrendData]]) -> StrategyResult
 }
 ```
 
 **内置策略**:
-- 📈 **上升趋势检测**: 检测销量快速上升
-- 📉 **下降趋势检测**: 检测销量异常下降
-- 🎯 **目标达成检测**: 检测是否达到销售目标
-- ⚠️ **异常波动检测**: 检测数据异常波动
+- **StrongBuyStrategy**: 强烈买入信号检测
+- **StrongSellStrategy**: 强烈卖出信号检测
+- **NormalBuyStrategy**: 普通买入信号检测
+- **NormalSellStrategy**: 普通卖出信号检测
 
 **策略执行流程**:
 ```
-趋势数据更新 → 策略引擎分析 → 生成预警消息 → 发送给消息组件
+趋势数据更新 → 策略引擎分析 → 生成预警消息 → 发送给消息中心
 ```
 
-### 5. 消息组件 (Message Component)
+### 4. 消息中心 (Message Center)
 
 **职责**: 消息发送和展示
 
 **核心结构**:
 ```swift
-struct AlertMessage {
-    let id: UUID
-    let title: String
-    let content: String
-    let level: AlertLevel
-    let timestamp: Date
-    let trendSource: String
-}
-
-class MessageManager {
-    private var messages: [AlertMessage] = []
-    private var notificationService: NotificationService
+class MessageManager: ObservableObject {
+    @Published var inAppMessages: [InAppMessage] = []
+    @Published var isNotificationAuthorized = false
+    
+    func addInAppMessage(_ content: String, type: MessageType)
+    func sendPushNotification(_ title: String, body: String)
 }
 ```
+
+**消息类型颜色方案**:
+- 🔴 **强烈卖出** (红色) - 表示强烈看跌信号
+- 🟠 **普通卖出** (橙色) - 表示一般看跌信号
+- 🔵 **普通买入** (蓝色) - 表示一般看涨信号
+- 🟢 **强烈买入** (绿色) - 表示强烈看涨信号
+- ⚪ **中性** (灰色) - 表示一般信息
 
 **主要功能**:
 - 📱 推送通知发送
@@ -165,53 +158,73 @@ class MessageManager {
 - 🔔 声音和震动提醒
 - 📋 消息历史记录
 
+### 5. 展示组件 (Display Component)
+
+**职责**: 将趋势数据可视化展示
+
+**核心结构**:
+```swift
+struct ContentView: View {
+    @StateObject private var manager = TrendFetcherManager()
+    
+    // 图表视图
+    private func chartView(trendData: [TrendData]) -> some View
+    // 消息行视图
+    struct MessageRow: View
+}
+```
+
+**主要功能**:
+- 📈 多趋势曲线图展示
+- 🎨 美观的图表样式
+- 📱 响应式界面设计
+- 🔍 数据统计信息展示
+
 ## 🔄 组件交互流程
 
 ### 1. 数据获取流程
 ```
 用户操作/定时器触发
     ↓
-趋势获取组件启动异步任务
+TrendFetcherManager 启动异步任务
     ↓
-并行获取多个数据源
+并行获取多个数据源 (Google/Baidu)
     ↓
-数据传入核心组件
+数据传入 StrategyCenter 分析
     ↓
-核心组件更新存储并通知其他组件
+生成策略结果
     ↓
-展示组件更新界面
+MessageManager 发送带颜色的消息
     ↓
-策略组件分析数据
-    ↓
-生成预警消息
-    ↓
-消息组件发送通知
+ContentView 更新界面显示
 ```
 
-### 2. 用户交互流程
-```
-用户长按图表
-    ↓
-展示组件获取点击位置
-    ↓
-计算最近的数据点
-    ↓
-显示数据点详情弹窗
-```
-
-### 3. 策略执行流程
+### 2. 策略执行流程
 ```
 趋势数据更新
     ↓
-策略引擎收集所有策略
+StrategyCenter 收集所有策略
     ↓
 并行执行策略分析
     ↓
-汇总分析结果
+根据策略类型和等级确定消息类型
     ↓
-生成预警消息
+MessageManager 处理消息
     ↓
-消息组件处理消息
+显示带颜色的站内信
+```
+
+### 3. 消息显示流程
+```
+策略触发
+    ↓
+确定消息类型 (强烈买入/普通买入/普通卖出/强烈卖出)
+    ↓
+创建带类型的 InAppMessage
+    ↓
+MessageRow 根据类型显示不同颜色
+    ↓
+用户看到颜色化的消息
 ```
 
 ## 🛠️ 技术栈
@@ -219,23 +232,23 @@ class MessageManager {
 - **UI框架**: SwiftUI
 - **图表库**: SwiftUI Charts
 - **异步处理**: Swift Concurrency (async/await)
-- **数据存储**: Core Data / UserDefaults
+- **数据存储**: UserDefaults
 - **网络请求**: URLSession
 - **推送通知**: UserNotifications
 
-## 📱 界面预览
+## 📱 界面功能
 
-### 主界面
-- 趋势曲线图展示
-- 多数据源切换
-- 实时数据更新
-- 交互式图表操作
+### 主界面特性
+- 📊 **趋势曲线图**: 多数据源趋势可视化
+- 📈 **数据统计**: 7日均值和最新数据对比
+- 🎨 **美观布局**: 紧凑的数据统计框设计
+- 🔄 **实时更新**: 定时自动获取最新数据
 
-### 消息中心
-- 预警消息列表
-- 消息详情查看
-- 消息状态管理
-- 历史记录浏览
+### 消息中心特性
+- 🏷️ **类型标签**: 消息类型彩色标签显示
+- 🎨 **颜色编码**: 不同类型消息不同颜色
+- 📋 **消息历史**: 保留最近20条消息
+- 🗑️ **一键清除**: 快速清空所有消息
 
 ## 🚀 快速开始
 
@@ -258,36 +271,39 @@ open popmart_trend_view.xcodeproj
 
 ### 数据源配置
 ```swift
-// 在 TrendFetcher 中配置数据源
-let dataSources = [
-    DataSource(name: "sales", url: "api/sales/trend"),
-    DataSource(name: "social", url: "api/social/trend"),
-    DataSource(name: "inventory", url: "api/inventory/trend")
-]
+// 在 TrendFetcherManager 中配置数据源
+private func setupFetchers() {
+    register(GoogleTrendsFetcher())
+    register(BaiduTrendsFetcher())
+}
 ```
 
 ### 策略配置
 ```swift
-// 在 StrategyEngine 中添加策略
-let strategies: [TrendStrategy] = [
-    RisingTrendStrategy(),
-    FallingTrendStrategy(),
-    TargetAchievementStrategy(),
-    AnomalyDetectionStrategy()
-]
+// 在 StrategyCenter 中添加策略
+private func setupStrategies() {
+    register(StrongBuyStrategy())
+    register(StrongSellStrategy())
+    register(NormalBuyStrategy())
+    register(NormalSellStrategy())
+}
+```
+
+### 消息类型配置
+```swift
+// 在 MessageType 中定义颜色
+var color: Color {
+    switch self {
+    case .strongSell: return .red
+    case .normalSell: return .orange
+    case .normalBuy: return .blue
+    case .strongBuy: return .green
+    case .neutral: return .gray
+    }
+}
 ```
 
 ## 📊 数据结构
-
-### TrendInput
-```swift
-struct TrendInput {
-    let name: String           // 趋势名称
-    let data: [TrendData]      // 趋势数据点
-    let source: String         // 数据来源
-    let lastUpdate: Date       // 最后更新时间
-}
-```
 
 ### TrendData
 ```swift
@@ -295,18 +311,42 @@ struct TrendData: Identifiable {
     let id = UUID()
     let date: Date            // 时间点
     let value: Double         // 数值
-    let metadata: [String: Any]? // 额外元数据
+    let source: String        // 数据来源
+}
+```
+
+### StrategyResult
+```swift
+struct StrategyResult {
+    let isTriggered: Bool           // 是否触发
+    let strategyType: StrategyType  // 策略类型 (buy/sell)
+    let message: String             // 提醒文本
+    let timestamp: Date             // 触发时间
+    let strategyName: String        // 策略名称
+    let level: StrategyLevel        // 策略等级 (normal/strong)
+}
+```
+
+### InAppMessage
+```swift
+struct InAppMessage: Identifiable {
+    let id = UUID()
+    let content: String        // 消息内容
+    let timestamp: Date        // 时间戳
+    let type: MessageType      // 消息类型
 }
 ```
 
 ## 🔮 未来规划
 
 - [ ] 机器学习趋势预测
-- [ ] 更多数据源集成
-- [ ] 自定义策略配置
+- [ ] 更多数据源集成 (微博、抖音等)
+- [ ] 自定义策略配置界面
 - [ ] 数据导出功能
 - [ ] 多语言支持
 - [ ] 深色模式优化
+- [ ] 消息过滤和搜索功能
+- [ ] 策略回测功能
 
 ## 📄 许可证
 
@@ -315,6 +355,13 @@ MIT License
 ## 🤝 贡献指南
 
 欢迎提交 Issue 和 Pull Request！
+
+### 贡献步骤
+1. Fork 项目
+2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 打开 Pull Request
 
 ---
 
