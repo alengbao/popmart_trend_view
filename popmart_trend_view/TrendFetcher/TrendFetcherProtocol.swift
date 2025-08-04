@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 // Fetcher协议
 protocol TrendFetcher {
@@ -8,7 +9,10 @@ protocol TrendFetcher {
 
 // 管理器
 class TrendFetcherManager: ObservableObject {
-    @Published var trendResults: [String: [TrendData]] = [:]
+    @Published var update: Bool = false
+    var messageManager: MessageManager = MessageManager()
+    var trendResults: [String: [TrendData]] = [:]
+    private var strategyCenter: StrategyCenter = StrategyCenter()
     private var fetchers: [TrendFetcher] = []
     
     init() {
@@ -62,8 +66,17 @@ class TrendFetcherManager: ObservableObject {
             
             if totalNewDataCount > 0 {
                 print("✅ 总共获取到 \(totalNewDataCount) 条新数据")
-            } else {
-                print("ℹ️ 没有获取到新数据")
+                let results = strategyCenter.runStrategies(data: self.trendResults)
+                for result in results {
+                    if result.isTriggered {
+                        // 根据策略类型和等级确定消息类型
+                        let messageType = determineMessageType(from: result)
+                        messageManager.addInAppMessage(result.getMessage(), type: messageType)
+                        messageManager.sendPushNotification(result.getTitle(), body: result.getMessage())
+                        print("触发消息：msg=\(result.getMessage())")
+                    }
+                }
+                update = !update
             }
         }
     }
@@ -128,6 +141,20 @@ class TrendFetcherManager: ObservableObject {
             }
         }
         return latestData
+    }
+    
+    /// 根据策略结果确定消息类型
+    private func determineMessageType(from result: StrategyResult) -> MessageType {
+        switch (result.strategyType, result.level) {
+        case (.buy, .strong):
+            return .strongBuy
+        case (.buy, .normal):
+            return .normalBuy
+        case (.sell, .strong):
+            return .strongSell
+        case (.sell, .normal):
+            return .normalSell
+        }
     }
 }
 

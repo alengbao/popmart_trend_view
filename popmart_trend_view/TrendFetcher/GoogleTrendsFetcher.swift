@@ -1,10 +1,16 @@
+// 通过 https://serpapi.com/ 获取的GoogleTrend数据
+
 import Foundation
 
 class GoogleTrendsFetcher: TrendFetcher {
     let source = "谷歌趋势"
     var lastFetchDate: Date?
     var mocker: TrendMocker
-    let isMock = false  // 改为 false 以使用真实数据
+    let isMock = true  // 改为 false 以使用真实数据
+    
+    func getSource() -> String {
+        return source
+    }
     
     // 配置参数
     private let apiKey = "f5937bc9b0b54f9ba85cdd4eabae899383530a4a98a62b45059c3283b0924e26"
@@ -14,11 +20,9 @@ class GoogleTrendsFetcher: TrendFetcher {
     
     init() {
         self.mocker = TrendMocker(source: source,
-                                  data: [40, 47, 51, 56, 61, 62, 67, 62, 57, 55, 53, 52, 50, 48, 46, 44, 42, 40, 38, 56, 60, 77, 79, 80],
+                                  data: [40, 47, 51, 56, 61, 62, 67, 90, 98, 55, 40, 52, 200, 48, 46, 44, 42, 40, 38, 56, 60, 77, 79, 80],
                                   index: 7)
     }
-    
-    func getSource() -> String { source }
     
     func fetch() async -> [TrendData] {
         // 如果使用模拟数据，直接返回

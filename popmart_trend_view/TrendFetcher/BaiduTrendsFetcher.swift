@@ -4,7 +4,11 @@ class BaiduTrendsFetcher: TrendFetcher {
     let source = "百度指数"
     var lastFetchDate: Date?
     var mocker: TrendMocker
-    let isMock = false
+    let isMock = true
+    
+    func getSource() -> String {
+        return source
+    }
     let zoom = 0.01
 
     // 配置参数 - 直接在代码中设置
@@ -16,8 +20,6 @@ class BaiduTrendsFetcher: TrendFetcher {
                                   data: [55, 57, 61, 65, 64, 62, 60, 58, 56, 54, 52, 50, 48, 46, 44, 42, 40, 38, 36, 34, 32, 30, 28, 26, 24, 22],
                                   index: 7)
     }
-    
-    func getSource() -> String { source }
     
     func fetch() async -> [TrendData] {
         // 如果使用模拟数据，直接返回
