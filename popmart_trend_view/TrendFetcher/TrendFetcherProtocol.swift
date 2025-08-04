@@ -3,11 +3,12 @@ import Foundation
 // Fetcher协议
 protocol TrendFetcher {
     func fetch() async -> [TrendData] // 每次fetch只获取新增的数据
+    func getSource() -> String
 }
 
 // 管理器
 class TrendFetcherManager: ObservableObject {
-    @Published var trendResults: [TrendData] = []
+    @Published var trendResults: [String: [TrendData]] = [:]
     private var fetchers: [TrendFetcher] = []
     
     init() {
@@ -16,7 +17,7 @@ class TrendFetcherManager: ObservableObject {
     
     private func setupFetchers() {
         register(GoogleTrendsFetcher())
-        // register(BaiduTrendsFetcher())
+        register(BaiduTrendsFetcher())
     }
     
     func register(_ fetcher: TrendFetcher) {
@@ -24,37 +25,109 @@ class TrendFetcherManager: ObservableObject {
     }
     
     func runAllFetchers() async {
-        let allResults = await withTaskGroup(of: [TrendData].self) { group in
+        let allResults = await withTaskGroup(of: (String, [TrendData]).self) { group in
             for fetcher in fetchers {
                 group.addTask {
-                    await fetcher.fetch()
+                    let results = await fetcher.fetch()
+                    return (fetcher.getSource(), results)
                 }
             }
             
-            var results: [TrendData] = []
-            for await result in group {
-                results.append(contentsOf: result)
+            var groupedResults: [String: [TrendData]] = [:]
+            for await (source, results) in group {
+                if !results.isEmpty {
+                    groupedResults[source] = results
+                }
             }
-            return results
+            return groupedResults
         }
         
         await MainActor.run {
-            // 检查是否有新数据
-            let newDataCount = allResults.count
-            if newDataCount > 0 {
-                self.trendResults = self.trendResults + allResults
-                print("获取到 \(newDataCount) 条新数据")
+            // 合并新数据到现有结果中
+            var totalNewDataCount = 0
+            
+            for (source, newData) in allResults {
+                if let existingData = self.trendResults[source] {
+                    // 如果该 source 已存在数据，则合并
+                    self.trendResults[source] = existingData + newData
+                    totalNewDataCount += newData.count
+                    print("📊 \(source): 添加了 \(newData.count) 条新数据")
+                } else {
+                    // 如果该 source 不存在，则创建新的
+                    self.trendResults[source] = newData
+                    totalNewDataCount += newData.count
+                    print("📊 \(source): 新增 \(newData.count) 条数据")
+                }
+            }
+            
+            if totalNewDataCount > 0 {
+                print("✅ 总共获取到 \(totalNewDataCount) 条新数据")
+            } else {
+                print("ℹ️ 没有获取到新数据")
             }
         }
     }
     
-    func startPeriodicFetch(interval: TimeInterval = 10) {
+    func startPeriodicFetch(interval: TimeInterval = 1000) {
         Task {
             while true {
                 await runAllFetchers()
                 try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
             }
         }
+    }
+    
+    // MARK: - 便利方法
+    
+    /// 获取指定来源的数据
+    func getData(for source: String) -> [TrendData] {
+        return trendResults[source] ?? []
+    }
+    
+    /// 获取所有来源的数据
+    func getAllData() -> [TrendData] {
+        return trendResults.values.flatMap { $0 }
+    }
+    
+    /// 获取所有来源的列表
+    func getAllSources() -> [String] {
+        return Array(trendResults.keys)
+    }
+    
+    /// 获取指定来源的数据数量
+    func getDataCount(for source: String) -> Int {
+        return trendResults[source]?.count ?? 0
+    }
+    
+    /// 获取总数据数量
+    func getTotalDataCount() -> Int {
+        return trendResults.values.reduce(0) { $0 + $1.count }
+    }
+    
+    /// 清空指定来源的数据
+    func clearData(for source: String) {
+        trendResults[source] = []
+    }
+    
+    /// 清空所有数据
+    func clearAllData() {
+        trendResults.removeAll()
+    }
+    
+    /// 获取最新的数据点（按日期排序）
+    func getLatestData(for source: String) -> TrendData? {
+        return trendResults[source]?.max { $0.date < $1.date }
+    }
+    
+    /// 获取所有来源的最新数据
+    func getAllLatestData() -> [String: TrendData] {
+        var latestData: [String: TrendData] = [:]
+        for (source, data) in trendResults {
+            if let latest = data.max(by: { $0.date < $1.date }) {
+                latestData[source] = latest
+            }
+        }
+        return latestData
     }
 }
 
@@ -93,4 +166,3 @@ class TrendMocker {
         return [trendData]
     }
 }
-

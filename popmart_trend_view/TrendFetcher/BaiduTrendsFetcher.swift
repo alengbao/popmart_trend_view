@@ -5,7 +5,7 @@ class BaiduTrendsFetcher: TrendFetcher {
     var lastFetchDate: Date?
     var mocker: TrendMocker
     let isMock = false
-    let zoom = 1000
+    let zoom = 0.01
 
     // 配置参数 - 直接在代码中设置
     private let keyword = "泡泡玛特"  // 搜索关键词
@@ -16,6 +16,8 @@ class BaiduTrendsFetcher: TrendFetcher {
                                   data: [55, 57, 61, 65, 64, 62, 60, 58, 56, 54, 52, 50, 48, 46, 44, 42, 40, 38, 36, 34, 32, 30, 28, 26, 24, 22],
                                   index: 7)
     }
+    
+    func getSource() -> String { source }
     
     func fetch() async -> [TrendData] {
         // 如果使用模拟数据，直接返回
@@ -85,7 +87,7 @@ class BaiduTrendsFetcher: TrendFetcher {
         let trendData = decryptData(ptbk: ptbk, json: json)
         print("✅ 密文解析完成，共解析 \(trendData.count) 个数据点")
         
-        return trendData
+        return trendData.map { TrendData(date: $0.date, value: $0.value * zoom, source: $0.source) }
     }
     
     // 1. 获取Cookie
@@ -301,7 +303,7 @@ class BaiduTrendsFetcher: TrendFetcher {
                 
                 print("📈 解析all数据: \(startDate) 到 \(endDate)")
                 let decryptedValues = decrypt(ptbk: ptbk, indexData: encryptedData)
-                let dataPoints = parseDecryptedData(decryptedValues: decryptedValues, startDate: startDate, endDate: endDate, source: "\(source)-\(wordName)-all")
+                let dataPoints = parseDecryptedData(decryptedValues: decryptedValues, startDate: startDate, endDate: endDate, source: source)
                 trendData.append(contentsOf: dataPoints)
             }
         }

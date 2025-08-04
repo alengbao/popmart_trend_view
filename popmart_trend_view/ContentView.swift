@@ -57,7 +57,7 @@ struct ContentView: View {
             
             // 图表
             if !manager.trendResults.isEmpty {
-                chartView(trendData: manager.trendResults)
+                chartView(trendData: manager.trendResults.values.flatMap { $0 })
             } else {
                 Text("暂无数据")
                     .foregroundColor(.gray)

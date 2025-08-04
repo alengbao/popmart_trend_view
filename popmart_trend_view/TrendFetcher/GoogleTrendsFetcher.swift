@@ -18,6 +18,8 @@ class GoogleTrendsFetcher: TrendFetcher {
                                   index: 7)
     }
     
+    func getSource() -> String { source }
+    
     func fetch() async -> [TrendData] {
         // 如果使用模拟数据，直接返回
         if isMock {
