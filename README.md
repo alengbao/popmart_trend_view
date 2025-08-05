@@ -16,29 +16,27 @@
 │                    └─────────────┘                         │
 │                            ▲                               │
 │                            │                               │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    │
-│  │   消息中心   │    │ 趋势获取器   │    │   策略中心   │    │
-│  │ Message     │◄───┤ Trend       │◄───┤ Strategy    │    │
-│  │ Center      │    │ Fetchers    │    │ Center      │    │
-│  └─────────────┘    └─────────────┘    └─────────────┘    │
-│         ▲                   ▲                   ▲           │
-│         │                   │                   │           │
-│         └───────────────────┼───────────────────┘           │
-│                             │                               │
 │                    ┌─────────────┐                         │
-│                    │   数据源     │                         │
-│                    │ Data        │                         │
-│                    │ Sources     │                         │
+│                    │ 趋势获取器   │                         │
+│                    │ Trend       │                         │
+│                    │ Fetchers    │                         │
 │                    └─────────────┘                         │
+│                            ▲                               │
+│                            │                               │
+│         ┌───────────────────┼───────────────────┐           │
+│         │                   │                   │           │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    │
+│  │   策略中心   │    │   消息中心   │    │   数据源     │    │
+│  │ Strategy    │    │ Message     │    │ Data        │    │
+│  │ Center      │    │ Center      │    │ Sources     │    │
+│  └─────────────┘    └─────────────┘    └─────────────┘    │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 **数据流向**:
 ```
-数据源 → 趋势获取器 → 策略中心 → 消息中心
-  ↓         ↓           ↓         ↓
-数据源 → 趋势获取器 → 策略中心 → 展示组件
+数据源 → 趋势获取器 → 策略中心 → 消息中心 → 展示组件
 ```
 
 ## 📁 项目结构
@@ -56,11 +54,11 @@ popmart_trend_view/
 │       ├── TrendFetcherProtocol.swift # 趋势获取协议
 │       ├── GoogleTrendsFetcher.swift  # 谷歌趋势获取器
 │       ├── BaiduTrendsFetcher.swift   # 百度趋势获取器
-│       ├── MessageCenter/             # 消息中心
-│       │   └── MessageCenter.swift    # 消息管理器
-│       └── StrategyCenter/            # 策略中心
-│           ├── StrategyProtocol.swift # 策略协议
-│           └── Strategies.swift       # 策略实现
+│       ├── StrategyCenter/            # 策略中心
+│       │   ├── StrategyProtocol.swift # 策略协议
+│       │   └── Strategies.swift       # 策略实现
+│       └── MessageCenter/             # 消息中心
+│           └── MessageCenter.swift    # 消息管理器
 ├── popmart_trend_viewTests/        # 单元测试
 ├── popmart_trend_viewUITests/      # UI测试
 └── README.md                       # 项目文档
@@ -100,7 +98,7 @@ struct InAppMessage: Identifiable {
 
 ### 2. 趋势获取器 (Trend Fetchers)
 
-**职责**: 异步获取各类趋势数据
+**职责**: 从数据源获取趋势数据，并将数据传递给策略中心
 
 **核心结构**:
 ```swift
@@ -119,10 +117,11 @@ protocol TrendFetcher {
 - 👆 支持手动触发获取
 - 🌐 多数据源并行获取
 - ⚡ 异步处理，不阻塞UI
+- 📤 将获取的数据传递给策略中心进行分析
 
 ### 3. 策略中心 (Strategy Center)
 
-**职责**: 分析趋势数据并触发预警
+**职责**: 接收趋势获取器的数据，分析趋势数据并生成策略结果
 
 **核心结构**:
 ```swift
@@ -141,12 +140,12 @@ protocol Strategy {
 
 **策略执行流程**:
 ```
-趋势数据更新 → 策略引擎分析 → 生成预警消息 → 发送给消息中心
+接收趋势获取器数据 → 策略引擎分析 → 生成策略结果 → 传递给消息中心
 ```
 
 ### 4. 消息中心 (Message Center)
 
-**职责**: 消息发送和展示
+**职责**: 接收策略中心的结果，生成消息并发送通知
 
 **核心结构**:
 ```swift
@@ -156,6 +155,7 @@ class MessageManager: ObservableObject {
     
     func addInAppMessage(_ content: String, type: MessageType)
     func sendPushNotification(_ title: String, body: String)
+    func processStrategyResult(_ result: StrategyResult)
 }
 ```
 
@@ -200,24 +200,26 @@ struct ContentView: View {
 ```
 数据源 (Google/Baidu)
     ↓
-趋势获取器 (TrendFetchers)
+趋势获取器 (TrendFetchers) 获取原始数据
     ↓
-策略中心 (StrategyCenter) 分析数据
+策略中心 (StrategyCenter) 分析数据并生成策略结果
     ↓
-消息中心 (MessageCenter) 生成带颜色的消息
+消息中心 (MessageCenter) 根据策略结果生成带颜色的消息
     ↓
 展示组件 (ContentView) 更新界面显示
 ```
 
 ### 2. 策略执行流程
 ```
-趋势获取器获取数据
+趋势获取器从数据源获取数据
     ↓
-策略中心收集所有策略
+将数据传递给策略中心
     ↓
-并行执行策略分析
+策略中心收集所有策略并并行执行分析
     ↓
 根据策略类型和等级确定消息类型
+    ↓
+将策略结果传递给消息中心
     ↓
 消息中心处理消息并发送通知
     ↓
@@ -226,11 +228,11 @@ struct ContentView: View {
 
 ### 3. 消息显示流程
 ```
-策略触发
+策略中心触发策略
     ↓
 确定消息类型 (强烈买入/普通买入/普通卖出/强烈卖出)
     ↓
-创建带类型的 InAppMessage
+消息中心创建带类型的 InAppMessage
     ↓
 MessageRow 根据类型显示不同颜色
     ↓
@@ -299,6 +301,26 @@ private func setupStrategies() {
 }
 ```
 
+### 消息处理配置
+```swift
+// 在 MessageCenter 中处理策略结果
+func processStrategyResult(_ result: StrategyResult) {
+    let messageType = convertStrategyToMessageType(result)
+    addInAppMessage(result.getMessage(), type: messageType)
+    sendPushNotification(result.getTitle(), body: result.getMessage())
+}
+
+// 将策略结果转换为消息类型
+private func convertStrategyToMessageType(_ result: StrategyResult) -> MessageType {
+    switch (result.strategyType, result.level) {
+    case (.buy, .strong): return .strongBuy
+    case (.buy, .normal): return .normalBuy
+    case (.sell, .strong): return .strongSell
+    case (.sell, .normal): return .normalSell
+    }
+}
+```
+
 ### 消息类型配置
 ```swift
 // 在 MessageType 中定义颜色
@@ -346,6 +368,28 @@ struct InAppMessage: Identifiable {
     let type: MessageType      // 消息类型
 }
 ```
+
+## 🏛️ 架构优势
+
+### 分层设计
+- **数据层**: 数据源提供原始趋势数据
+- **获取层**: 趋势获取器统一获取和管理数据
+- **分析层**: 策略中心负责数据分析和策略执行
+- **通知层**: 消息中心处理消息生成和通知发送
+- **展示层**: 展示组件负责数据可视化
+
+### 职责分离
+- **趋势获取器**: 专注于数据获取，不关心业务逻辑
+- **策略中心**: 专注于数据分析，不关心消息处理
+- **消息中心**: 专注于消息管理，不关心数据获取
+- **展示组件**: 专注于界面展示，不关心数据处理
+
+### 数据流清晰
+```
+数据源 → 趋势获取器 → 策略中心 → 消息中心 → 展示组件
+```
+
+每个组件都有明确的输入和输出，便于测试和维护。
 
 ## 🔮 未来规划
 

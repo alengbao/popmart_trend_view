@@ -9,7 +9,6 @@ class BaiduTrendsFetcher: TrendFetcher {
     func getSource() -> String {
         return source
     }
-    let zoom = 0.01
 
     // 配置参数 - 直接在代码中设置
     private let keyword = "泡泡玛特"  // 搜索关键词
@@ -89,6 +88,7 @@ class BaiduTrendsFetcher: TrendFetcher {
         let trendData = decryptData(ptbk: ptbk, json: json)
         print("✅ 密文解析完成，共解析 \(trendData.count) 个数据点")
         
+        let zoom = (100 / (trendData.max(by: {$0.value < $1.value})?.value ?? 100))
         return trendData.map { TrendData(date: $0.date, value: $0.value * zoom, source: $0.source) }
     }
     
