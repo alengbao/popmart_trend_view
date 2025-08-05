@@ -6,7 +6,7 @@ class GoogleTrendsFetcher: TrendFetcher {
     let source = "谷歌趋势"
     var lastFetchDate: Date?
     var mocker: TrendMocker
-    let isMock = true  // 改为 false 以使用真实数据
+    let isMock = false  // 改为 false 以使用真实数据
     
     func getSource() -> String {
         return source

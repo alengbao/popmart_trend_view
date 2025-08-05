@@ -4,7 +4,7 @@ class BaiduTrendsFetcher: TrendFetcher {
     let source = "百度指数"
     var lastFetchDate: Date?
     var mocker: TrendMocker
-    let isMock = true
+    let isMock = false
     
     func getSource() -> String {
         return source
